@@ -189,3 +189,148 @@ NutritionFacts cocaCola = new NutritionFacts.Builder(240,8)
     .calories(100).sodium(35).carbohydrates(27).build();
 ```
 
+Advantages:
+
+* The client code is easy to write and easy to read.
+
+Disadvantages:
+
+* May affect performance
+* More verbose: should be used only if there are enough parameters to make it worthwhile, say four or more. If you may want to add more parameters in the future, it's often better to start with a builder in the first place.
+
+```java
+public abstract class Pizza {
+	public enum Topping {HAM, MUSHROOM, ONION, PEPPER, SAUSAGE }
+	final Set<Topping> toppings;
+	
+	abstract static class Builder<T extends Builder<T>> {
+		EnumSet<Topping> toppings = EnumSet.noneOf(Topping.class);
+		
+		public T addTopping(Topping topping) {
+			toppings.add(Objects.requireNonNull(topping));
+			return self();
+		}
+		
+		abstract Pizza build();
+		
+		// Subclasses must override this method to return "this"
+		protected abstract T self();
+	}
+	
+	Pizza(Builder<?> builder) {
+		toppings = builder.toppings.clone();
+	}
+}
+```
+
+```java
+public class NyPizza extends Pizza{
+	public enum Size {SMALL, MEDIUM, LARGE }
+	private final Size size;
+	
+	public static class Builder extends Pizza.Builder<Builder> {
+		private final Size size;
+		
+		public Builder(Size size) {
+			this.size = Objects.requireNonNull(size);
+		}
+
+		@Override
+		Pizza build() {
+			return new NyPizza(this);
+		}
+
+		@Override
+		protected Builder self() {
+			return this;
+		}
+	}
+
+	private NyPizza(Builder builder) {
+		super(builder);
+		size = builder.size;
+	}
+}
+```
+
+```java
+NyPizza pizza = new NyPizza.Builder(SMALL).addTopping(SAUSAGE).addTopping(ONION)
+    .build();
+```
+
+#### Item 3: Enforce the singleton property with a private constructor or an enum type
+
+A `singleton` is simply a class that is instantiated exactly once.
+
+Common ways to implement: keep the constructor private and exporting a public static member to provide access to the sole instance.
+
+```java
+// Singleton with public final field
+public class Elvis {
+    public static final Elvis INSTANCE = new Elvis();
+    private Elvis() { ... }
+    public void leaveTheBuilding() { ... }
+}
+```
+Advantages of public field approach:
+
+* the API makes it clear that the class is a singleton
+* it's simpler
+
+
+```java
+// Singleton with static factory
+public class Elvis {
+    private static final Elvis INSTANCE = new Elvis();
+    private Elvis() { ... }
+    public static Elvis getInstance() { return INSTANCE; }
+}
+```
+
+Advantages of static factory approach:
+
+* It gives you the flexibility to change your mind about whether the class is a singleton without changing its API.
+* You can write a generic singleton factory if your application requires it.
+* A method reference can be used as a supplier, for example, `Elvis::instance` is a `Supplier<Elvis>`.
+
+**Usually, the public field approach is preferable.**
+
+To make a singleton class serializable, it is not sufficient merely to add `implements Serializable` to its declaration. To maintain the singleton guarantee, declare all instance fields `transient` and provide a `readResolve` method.
+
+```java
+// readResolve method to preserve singleton property
+private Object readResolve() {
+    return INSTANCE;
+}
+```
+
+A third way to implement a singleton is to declare a single-element enum:
+
+```java
+// Enum singleton - the preferred approach
+public enum Elvis {
+    INSTANCE;
+    
+    public void leaveTheBuilding() { ... }
+}
+```
+
+#### Item 4: Enforce noninstantiability with a private constructor
+
+Occasionally you'll want to write a class that is just a grouping of static methods and static fields. For example, `java.lang.Math` ,`java.util.Arrays`,`java.util.Collections`.
+
+Such utility classes were not designed to be instantiated: an instance would be nonsensical.
+
+```java
+// Noninstantiable utility class
+public class UtilityClass {
+    // Suppress default constructor for noninstantiability
+    private UtilityClass() {
+        throw new AssertionError();
+    }
+    ... // Remainder omitted
+}
+```
+
+The `AssertionError` isn't strictly required, but it provides insurance in case the constructor is accidentally invoked from within the class.
+
