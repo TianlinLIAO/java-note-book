@@ -334,3 +334,63 @@ public class UtilityClass {
 
 The `AssertionError` isn't strictly required, but it provides insurance in case the constructor is accidentally invoked from within the class.
 
+#### Item5: Prefer dependency injection to hardwiring resources
+
+Many classes depend on one or more underlying resources. For example, a spell checker depends on a dictionary.
+
+##### Bad: static utility
+
+```java
+// Inappropriate use of static utility - inflexible and untestable
+public class SpellChecker {
+    private static final Lexicon dictionary = ...;
+    
+    private SpellChecker() {} // Noninstantiable
+    
+    public static boolean isValid(String word) { ... }
+    public static List<String> suggestions(String typo) { ... }
+}
+```
+
+##### Bad: singleton
+
+```java
+// Inappropriate use of singleton - inflexible and testable
+public class SpellChecker {
+    private final Lexicon dictionary = ...;
+    
+    private SpellChecker(...) {}
+    public static INSTANCE = new SpellChecker(...);
+    
+    public static boolean isValid(String word) { ... }
+    public static List<String> suggestions(String typo) { ... }
+}
+```
+
+Neither of these approaches is satisfactory, because they assume that there is only one dictionary worth using.
+
+What is required is the ability to support multiple instances of the class (in our example, `SpellChecker`), each of which uses the resource (in our example, the dictionary) desired by the client. A simple pattern that satisfies this requirement is to pass the resource into the constructor when creating a new instance. This is one form of `dependency injection`: the dictionary is a dependency of the spell checker and is injected into the spell checker when it is created.
+
+##### Dependency injection
+
+```java
+// Dependency injection provides flexibility and testability
+public class SpellChecker {
+    private final Lexicon dictionary;
+    
+    public SpellChecker(Lexicon dictionary) {
+        this.dictionary = Objects.requireNonNull(dictionary);
+    }
+    
+    public boolean isValid(String word) { ... }
+    public static List<String> suggestions(String typo) { ... }
+}
+```
+
+A useful variant of the pattern is to pass a resource factory to the constructor. A factory is an object that can be called repeatedly to create instances of type. Such factories embody the Factory Method pattern. The `Supplier<T>` interface is  perfect for representing factories. For example,
+
+```java
+Mosaic create(Supplier<? extends Tile> tileFactory) { ... }
+```
+
+Although dependency injection greatly improves flexibility and testability, it can clutter up large projects, which typically contain thousands of dependencies. This clutter can be all eliminated by using a dependency injection framework, such as Dagger, Guice, or Spring.
