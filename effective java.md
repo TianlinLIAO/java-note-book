@@ -394,3 +394,50 @@ Mosaic create(Supplier<? extends Tile> tileFactory) { ... }
 ```
 
 Although dependency injection greatly improves flexibility and testability, it can clutter up large projects, which typically contain thousands of dependencies. This clutter can be all eliminated by using a dependency injection framework, such as Dagger, Guice, or Spring.
+
+#### Item 6: Avoid creating unnecessary objects
+
+```java
+String s = new String("bikini"); // DON'T DO THIS!
+```
+
+The argument to the String constructor ("bikini") is itself a String instance. If this usage occurs in a loop or in a frequently invoked method, millions of String instances can be created needlessly. The improved version is simply the following:
+
+```java
+String s = "bikini";
+```
+
+You can often avoid creating unnecessary objects by using static factory methods (item 1) in preference to constructors on immutable classes that provide both. For example, the factory method `Boolean.valueOf(String)` is preferable to the constructor `Boolean(String)`, which was deprecated in Java 9. The constructor must create a new object each time it's called, while the factory method is never required to do so and won't in practice. In addition to reusing immutable objects, you can also reuse mutable objects if you know they won't be modified.
+
+```java
+// Performance can be greatly improved!
+static boolean isRomanNumeral(String s) {
+    return s.matches("^(?=.)M*(C[MD]|D?C{0, 3})" + "(X[CL]|L?X{0, 3})(I[XV]|V?I{0, 3})$");
+}
+```
+
+`String.matches` is the easiest way to check if a string matches a regular expression, it's not suitable for repeated use in performance-critical situations. The problem is that it internally creates a `Pattern` instance for the regular expression and uses it only once, after which it becomes eligible for garbage collection. To improve the performance, explicitly compile the regular expression into a `Pattern` instance (which is immutable) as part of class initialization, cache it, and reuse the same instance for every invocation of the `isRomanNumeral` method:
+
+```java
+// Reusing expensive object for improved performance
+public class RomanNumerals {
+    private static final Pattern ROMAN = Pattern.compile("^(?=.)M*(C[MD]|D?C{0, 3})" + "(X[CL]|L?{0, 3})(I[XV]|V?I{0, 3})$");
+    
+    static boolean isRomanNumeral(String s) {
+        return ROMAN.matcher(s).matches();
+    }
+}
+```
+
+```java
+// Autoboxing will also create unnecessary objects
+private static long sum() {
+    Long sum = 0L;
+    for (long i = 0; i <= Integer.MAX_VALUE; i++) {
+        sum += i;
+    }
+    return sum;
+}
+```
+
+The variable `sum` is declared as a `Long` instead of a `long`, which means that the program constructs about 2^31^ unnecessary `Long` instances (roughly one for each time the `long i` is added to the `Long sum` ).
